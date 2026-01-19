@@ -16,3 +16,7 @@ The player must support:
    - Support mute and maximum volume
 
 ## How To Use
+sudo apt update
+sudo apt install libgtk-4-dev build-essential
+
+

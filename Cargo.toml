@@ -4,6 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.100"
-clap = "4.5.54"
+clap = { version = "4.5.54", features = ["derive"] }
+gst-plugin-gtk4 ={version = "0.14.4", default-features = false, features = [ 'wayland', 'x11glx', 'x11egl']}
 gstreamer = "0.24.4"
+gstreamer-video = { version = "0.24", features = ["v1_20"] }
+gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
+# gst-plugin-gtk4 = { version = "0.14", features = ["gtk_v4_14"] }
+thiserror = "2.0.17"
+
+
+[features]
+default = []
+wayland = ["gst-plugin-gtk4/wayland"]
+x11glx = ["gst-plugin-gtk4/x11glx"]
+x11egl = ["gst-plugin-gtk4/x11egl"]
