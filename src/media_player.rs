@@ -22,6 +22,12 @@ pub struct MediaPlayer {
     gtk_video: PaintableSink,
 
     user_is_seeking: bool,
+    /// Current volume (0.0 to 1.0)
+    volume: f64,
+    /// Is the player muted?
+    muted: bool,
+    /// Volume before muting (to restore when unmuting)
+    volume_before_mute: f64,
 }
 
 impl MediaPlayer {
@@ -36,6 +42,9 @@ impl MediaPlayer {
         let videosink = PaintableSink::new(Some("gtk4paintablesink"));
 
         playbin.set_property("video-sink", &videosink);
+        
+        // Set default volume to 50%
+        playbin.set_property("volume", 0.5f64);
 
         Self {
             playbin,
@@ -44,6 +53,9 @@ impl MediaPlayer {
             duration: ClockTime::NONE,
             gtk_video: videosink,
             user_is_seeking: false,
+            volume: 0.5,
+            muted: false,
+            volume_before_mute: 0.5,
         }
     }
     // Getters
@@ -145,6 +157,44 @@ impl MediaPlayer {
         self.playbin
             .seek_simple(SeekFlags::FLUSH | SeekFlags::KEY_UNIT, new_position)
             .map_err(|err| MediaPlayerErrors::ErrorSeekingBackward(err))
+    }
+
+    /// Set the volume (0.0 to 1.0)
+    pub fn set_volume(&mut self, volume: f64) -> Result<(), MediaPlayerErrors> {
+        let clamped_volume = volume.clamp(0.0, 1.0);
+        self.playbin.set_property("volume", clamped_volume);
+        self.volume = clamped_volume;
+        if !self.muted {
+            self.volume_before_mute = clamped_volume;
+        }
+        Ok(())
+    }
+
+    /// Get the current volume (0.0 to 1.0)
+    pub fn get_volume(&self) -> f64 {
+        self.volume
+    }
+
+    /// Toggle mute/unmute
+    pub fn toggle_mute(&mut self) -> Result<(), MediaPlayerErrors> {
+        if self.muted {
+            // Unmute: restore previous volume
+            self.playbin.set_property("volume", self.volume_before_mute);
+            self.volume = self.volume_before_mute;
+            self.muted = false;
+        } else {
+            // Mute: save current volume and set to 0
+            self.volume_before_mute = self.volume;
+            self.playbin.set_property("volume", 0.0f64);
+            self.volume = 0.0;
+            self.muted = true;
+        }
+        Ok(())
+    }
+
+    /// Check if the player is muted
+    pub fn is_muted(&self) -> bool {
+        self.muted
     }
 }
 

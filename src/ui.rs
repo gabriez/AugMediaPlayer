@@ -229,6 +229,87 @@ pub fn build_buttons(media_player: &MediaPlayerRef, window: &ApplicationWindow) 
     button_box
 }
 
+pub fn build_volume_controls(media_player: &MediaPlayerRef, window: &ApplicationWindow) -> gtk::Box {
+    let volume_box = gtk::Box::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .halign(gtk::Align::Fill)
+        .spacing(6)
+        .margin_top(2)
+        .margin_bottom(2)
+        .build();
+
+    // Mute button
+    let mute_button = Button::builder()
+        .icon_name(if media_player.borrow().is_muted() {
+            "audio-volume-muted-symbolic"
+        } else {
+            "audio-volume-high-symbolic"
+        })
+        .margin_start(6)
+        .margin_end(6)
+        .build();
+
+    mute_button.connect_clicked(clone!(
+        #[weak]
+        window,
+        #[weak]
+        media_player,
+        move |button| {
+            if let Err(err) = media_player.borrow_mut().toggle_mute() {
+                error_dialog(&window, &format!("Error toggling mute: {}", err));
+                return;
+            }
+            
+            // Update button icon based on mute state
+            if media_player.borrow().is_muted() {
+                button.set_icon_name("audio-volume-muted-symbolic");
+            } else {
+                button.set_icon_name("audio-volume-high-symbolic");
+            }
+        }
+    ));
+
+    // Volume label
+    let volume_label = Label::builder()
+        .label("Volume:")
+        .margin_start(6)
+        .build();
+
+    // Volume slider (0-100)
+    let volume_slider = Scale::builder()
+        .orientation(gtk::Orientation::Horizontal)
+        .adjustment(&gtk::Adjustment::new(
+            media_player.borrow().get_volume() * 100.0,
+            0.0,
+            100.0,
+            1.0,
+            5.0,
+            0.0,
+        ))
+        .hexpand(true)
+        .width_request(150)
+        .build();
+
+    volume_slider.connect_value_changed(clone!(
+        #[weak]
+        window,
+        #[weak]
+        media_player,
+        move |slider| {
+            let volume = slider.value() / 100.0;
+            if let Err(err) = media_player.borrow_mut().set_volume(volume) {
+                error_dialog(&window, &format!("Error setting volume: {}", err));
+            }
+        }
+    ));
+
+    volume_box.append(&volume_label);
+    volume_box.append(&volume_slider);
+    volume_box.append(&mute_button);
+
+    volume_box
+}
+
 pub fn build_ui(app: &Application, media_player: MediaPlayerRef) {
     let window: ApplicationWindow = ApplicationWindow::builder()
         .application(app)
@@ -236,6 +317,7 @@ pub fn build_ui(app: &Application, media_player: MediaPlayerRef) {
         .build();
 
     let button_box = build_buttons(&media_player, &window);
+    let volume_box = build_volume_controls(&media_player, &window);
 
     let control_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Vertical)
@@ -260,6 +342,7 @@ pub fn build_ui(app: &Application, media_player: MediaPlayerRef) {
     control_box.append(&video_widget);
     control_box.append(&duration_bar);
     control_box.append(&button_box);
+    control_box.append(&volume_box);
 
     window.set_child(Some(&control_box));
 
