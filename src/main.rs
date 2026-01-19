@@ -9,8 +9,6 @@ use {
     std::{cell::RefCell, rc::Rc},
 };
 
-
-
 const APP_ID: &str = "org.AugMediaPlayer";
 
 fn main() -> glib::ExitCode {

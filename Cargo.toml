@@ -2,6 +2,7 @@
 name = "aug_media_player"
 version = "0.1.0"
 edition = "2024"
+authors = ["Gabriel Torres <gabrieltorres2014@gmail.com>"]
 
 [dependencies]
 clap = { version = "4.5.54", features = ["derive"] }
@@ -9,7 +10,6 @@ gst-plugin-gtk4 ={version = "0.14.4", default-features = false, features = [ 'wa
 gstreamer = "0.24.4"
 gstreamer-video = { version = "0.24", features = ["v1_20"] }
 gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
-# gst-plugin-gtk4 = { version = "0.14", features = ["gtk_v4_14"] }
 thiserror = "2.0.17"
 
 
