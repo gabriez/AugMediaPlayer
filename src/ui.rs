@@ -1,5 +1,5 @@
 use {
-    crate::media_player::MediaPlayerRef,
+    crate::media_player::{DesktopMediaPlayerRef, PlaybackControl, SeekControl, VolumeControl},
     gtk::{
         Application, ApplicationWindow, Button, Dialog, Label, ResponseType, Scale,
         glib::{self, clone},
@@ -7,7 +7,11 @@ use {
     },
 };
 
-pub fn refresh_ui(window: &ApplicationWindow, media_player: &MediaPlayerRef, duration_bar: &Scale) {
+pub fn refresh_ui(
+    window: &ApplicationWindow,
+    media_player: &DesktopMediaPlayerRef,
+    duration_bar: &Scale,
+) {
     duration_bar.connect_change_value(clone!(
         #[weak]
         window,
@@ -100,7 +104,7 @@ pub fn error_dialog(window: &ApplicationWindow, message: &str) {
     dialog.present();
 }
 
-pub fn build_buttons(media_player: &MediaPlayerRef, window: &ApplicationWindow) -> gtk::Box {
+pub fn build_buttons(media_player: &DesktopMediaPlayerRef, window: &ApplicationWindow) -> gtk::Box {
     let start_button = Button::builder()
         .icon_name("media-playback-pause") // It will always start and the icon should be paused
         .margin_top(2)
@@ -214,7 +218,7 @@ pub fn build_buttons(media_player: &MediaPlayerRef, window: &ApplicationWindow) 
     button_box
 }
 
-pub fn build_volume_controls(media_player: &MediaPlayerRef) -> gtk::Box {
+pub fn build_volume_controls(media_player: &DesktopMediaPlayerRef) -> gtk::Box {
     let volume_box = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
         .halign(gtk::Align::Fill)
@@ -283,7 +287,7 @@ pub fn build_volume_controls(media_player: &MediaPlayerRef) -> gtk::Box {
     volume_box
 }
 
-pub fn build_ui(app: &Application, media_player: MediaPlayerRef, video_widget: gtk::Widget) {
+pub fn build_ui(app: &Application, media_player: DesktopMediaPlayerRef, video_widget: gtk::Widget) {
     let window: ApplicationWindow = ApplicationWindow::builder()
         .application(app)
         .title("AugMediaPlayer")

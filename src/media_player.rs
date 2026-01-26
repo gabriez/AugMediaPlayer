@@ -318,4 +318,4 @@ impl VolumeControl for DesktopMediaPlayer {
     }
 }
 
-pub type MediaPlayerRef = Rc<RefCell<Box<dyn MediaPlayerControl + 'static>>>;
+pub type DesktopMediaPlayerRef = Rc<RefCell<DesktopMediaPlayer>>;
