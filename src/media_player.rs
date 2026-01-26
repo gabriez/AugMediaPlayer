@@ -8,7 +8,7 @@ use {
     },
     thiserror::Error,
 };
-pub struct MediaPlayer {
+pub struct DesktopMediaPlayer {
     /// Our one and only element
     playbin: Element,
     /// Are we in the PLAYING state?
@@ -21,6 +21,7 @@ pub struct MediaPlayer {
     /// Video Widget
     gtk_video: PaintableSink,
 
+    /// Is user seeking the media?
     user_is_seeking: bool,
     /// Current volume (0.0 to 1.0)
     volume: f64,
@@ -30,7 +31,7 @@ pub struct MediaPlayer {
     volume_before_mute: f64,
 }
 
-impl MediaPlayer {
+impl DesktopMediaPlayer {
     pub fn build(uri: impl AsRef<str>) -> Self {
         let playbin = ElementFactory::make("playbin")
             .name("playbin")
@@ -42,7 +43,7 @@ impl MediaPlayer {
         let videosink = PaintableSink::new(Some("gtk4paintablesink"));
 
         playbin.set_property("video-sink", &videosink);
-        
+
         // Set default volume to 50%
         playbin.set_property("volume", 0.5f64);
 
@@ -58,18 +59,15 @@ impl MediaPlayer {
             volume_before_mute: 0.5,
         }
     }
-    // Getters
 
+    /// Returns if the user is seeking the media
     pub fn user_is_seeking(&self) -> bool {
         self.user_is_seeking
     }
 
-    pub fn duration(&self) -> Option<ClockTime> {
-        self.duration
-    }
-
-    pub fn seek_enabled(&self) -> bool {
-        self.seek_enabled
+    // Setters
+    pub fn set_user_is_seeking(&mut self, user_is_seeking: bool) {
+        self.user_is_seeking = user_is_seeking;
     }
 
     pub fn get_gtk_widget(&self) -> gtk::Widget {
@@ -78,127 +76,15 @@ impl MediaPlayer {
         gtk::Picture::for_paintable(&paintable).upcast()
     }
 
+    /// Will return gstreamer bus used to get notifications
     pub fn get_bus(&self) -> Bus {
         // This function most of the times will return a bus
         // If by any reason the bus is None, then something is wrong with gstreamer setup
         self.playbin.bus().unwrap()
     }
-
-    pub fn playing(&self) -> bool {
-        self.playing
-    }
-
-    pub fn get_position(&self) -> Result<ClockTime, MediaPlayerErrors> {
-        self.playbin.query_position::<ClockTime>().map_or_else(
-            || Err(MediaPlayerErrors::ErrorGettingPosition),
-            |val| Ok(val),
-        )
-    }
-
-    // Setters
-    pub fn set_user_is_seeking(&mut self, user_is_seeking: bool) {
-        self.user_is_seeking = user_is_seeking;
-    }
-
-    pub fn pause_player(&self) -> Result<(), MediaPlayerErrors> {
-        self.playbin
-            .set_state(State::Paused)
-            .map_err(MediaPlayerErrors::ErrorPausing)
-            .map(|_| ())
-    }
-
-    pub fn play_player(&self) -> Result<(), MediaPlayerErrors> {
-        self.playbin
-            .set_state(State::Playing)
-            .map_err(MediaPlayerErrors::ErrorPlaying)
-            .map(|_| ())
-    }
-
-    pub fn stop_player(&self) -> Result<(), MediaPlayerErrors> {
-        self.playbin
-            .set_state(State::Ready)
-            .map_err(MediaPlayerErrors::Errorstopping)
-            .map(|_| ())
-    }
-
-    pub fn move_forward(&self) -> Result<(), MediaPlayerErrors> {
-        if !self.seek_enabled {
-            return Ok(());
-        }
-        let position = self.get_position()?;
-        self.playbin
-            .seek_simple(
-                SeekFlags::FLUSH | SeekFlags::KEY_UNIT,
-                position + (10 * ClockTime::SECOND),
-            )
-            .map_err(|err| MediaPlayerErrors::ErrorSeekingForward(err))
-    }
-
-    pub fn seek_position(&self, position: ClockTime) -> Result<(), MediaPlayerErrors> {
-        if !self.seek_enabled {
-            return Ok(());
-        }
-        self.playbin
-            .seek_simple(SeekFlags::FLUSH | SeekFlags::KEY_UNIT, position)
-            .map_err(|err| MediaPlayerErrors::ErrorSeeking(err))
-    }
-
-    pub fn move_backward(&self) -> Result<(), MediaPlayerErrors> {
-        if !self.seek_enabled {
-            return Ok(());
-        }
-        let position = self.get_position()?;
-        let new_position = if position > (10 * ClockTime::SECOND) {
-            position - (10 * ClockTime::SECOND)
-        } else {
-            ClockTime::ZERO
-        };
-
-        self.playbin
-            .seek_simple(SeekFlags::FLUSH | SeekFlags::KEY_UNIT, new_position)
-            .map_err(|err| MediaPlayerErrors::ErrorSeekingBackward(err))
-    }
-
-    /// Set the volume (0.0 to 1.0)
-    pub fn set_volume(&mut self, volume: f64) -> Result<(), MediaPlayerErrors> {
-        let clamped_volume = volume.clamp(0.0, 1.0);
-        self.playbin.set_property("volume", clamped_volume);
-        self.volume = clamped_volume;
-        if !self.muted {
-            self.volume_before_mute = clamped_volume;
-        }
-        Ok(())
-    }
-
-    /// Get the current volume (0.0 to 1.0)
-    pub fn get_volume(&self) -> f64 {
-        self.volume
-    }
-
-    /// Toggle mute/unmute
-    pub fn toggle_mute(&mut self) -> Result<(), MediaPlayerErrors> {
-        if self.muted {
-            // Unmute: restore previous volume
-            self.playbin.set_property("volume", self.volume_before_mute);
-            self.volume = self.volume_before_mute;
-            self.muted = false;
-        } else {
-            // Mute: save current volume and set to 0
-            self.volume_before_mute = self.volume;
-            self.playbin.set_property("volume", 0.0f64);
-            self.volume = 0.0;
-            self.muted = true;
-        }
-        Ok(())
-    }
-
-    /// Check if the player is muted
-    pub fn is_muted(&self) -> bool {
-        self.muted
-    }
 }
 
-impl Drop for MediaPlayer {
+impl Drop for DesktopMediaPlayer {
     fn drop(&mut self) {
         self.playbin
             .set_state(State::Null)
@@ -206,20 +92,19 @@ impl Drop for MediaPlayer {
     }
 }
 
-pub type MediaPlayerRef = Rc<RefCell<MediaPlayer>>;
+pub type MediaPlayerRef = Rc<RefCell<DesktopMediaPlayer>>;
 
 #[derive(Error, Debug)]
 pub enum MediaPlayerErrors {
-    #[error("Unable to seek forward with this media. Check if you're using a stream")]
-    ErrorSeekingForward(glib::error::BoolError),
-    #[error("Unable to seek backward with this media. Check if you're using a stream")]
-    ErrorSeekingBackward(glib::error::BoolError),
+
     #[error(
         "Unable to seek to the specified position with this media. Check if you're using a stream"
     )]
     ErrorSeeking(glib::error::BoolError),
+    #[error("Seek is unavailable for this media")]
+    ErrorSeekingUnavailable,
 
-    #[error("Unable to get position in this media. Check if you're using a stream")]
+    #[error("Unable to get position in this media")]
     ErrorGettingPosition,
 
     #[error("Error playing media")]
@@ -230,7 +115,7 @@ pub enum MediaPlayerErrors {
     ErrorPausing(StateChangeError),
 }
 
-pub fn handle_message(mut media_player: RefMut<'_, MediaPlayer>, msg: &Message) {
+pub fn handle_message(mut media_player: RefMut<'_, DesktopMediaPlayer>, msg: &Message) {
     use MessageView;
     match msg.view() {
         MessageView::Error(err) => {
@@ -268,5 +153,156 @@ pub fn handle_message(mut media_player: RefMut<'_, MediaPlayer>, msg: &Message) 
             }
         }
         _ => (),
+    }
+}
+
+/// Trait for playback control
+pub trait PlaybackControl {
+    /// Play the media
+    fn play(&self) -> Result<(), MediaPlayerErrors>;
+
+    /// Pause the media
+    fn pause(&self) -> Result<(), MediaPlayerErrors>;
+
+    /// Stop the media
+    fn stop(&self) -> Result<(), MediaPlayerErrors>;
+
+    /// Check if the media is playing
+    fn playing(&self) -> bool;
+}
+
+impl PlaybackControl for DesktopMediaPlayer {
+    fn pause(&self) -> Result<(), MediaPlayerErrors> {
+        self.playbin
+            .set_state(State::Paused)
+            .map_err(MediaPlayerErrors::ErrorPausing)
+            .map(|_| ())
+    }
+
+    fn play(&self) -> Result<(), MediaPlayerErrors> {
+        self.playbin
+            .set_state(State::Playing)
+            .map_err(MediaPlayerErrors::ErrorPlaying)
+            .map(|_| ())
+    }
+
+    fn stop(&self) -> Result<(), MediaPlayerErrors> {
+        self.playbin
+            .set_state(State::Ready)
+            .map_err(MediaPlayerErrors::Errorstopping)
+            .map(|_| ())
+    }
+
+    fn playing(&self) -> bool {
+        self.playing
+    }
+}
+
+/// Trait for seek control
+pub trait SeekControl {
+    /// Move the media forward by 10 seconds
+    fn seek_forward(&self) -> Result<(), MediaPlayerErrors>;
+
+    /// Move the media backward by 10 seconds
+    fn seek_backward(&self) -> Result<(), MediaPlayerErrors>;
+
+    /// Seek to a specific position in the media
+    fn seek_to(&self, position: ClockTime) -> Result<(), MediaPlayerErrors>;
+
+    /// Returns media duration in seconds
+    fn duration(&self) -> Option<f64>;
+
+    /// Check if seeking is supported for this media
+    fn can_seek(&self) -> bool;
+
+    /// Get current playback position
+    fn position(&self) -> Result<f64, MediaPlayerErrors>;
+}
+
+impl SeekControl for DesktopMediaPlayer {
+    fn duration(&self) -> Option<f64> {
+        self.duration.map(|d| d.seconds_f64())
+    }
+
+    fn seek_forward(&self) -> Result<(), MediaPlayerErrors> {
+        let position = ClockTime::from_seconds_f64(self.position()?);
+        self.seek_to(position + (10 * ClockTime::SECOND))
+    }
+
+    fn seek_to(&self, position: ClockTime) -> Result<(), MediaPlayerErrors> {
+        if !self.seek_enabled {
+            return Err(MediaPlayerErrors::ErrorSeekingUnavailable);
+        }
+        self.playbin
+            .seek_simple(SeekFlags::FLUSH | SeekFlags::KEY_UNIT, position)
+            .map_err(MediaPlayerErrors::ErrorSeeking)
+    }
+
+    fn seek_backward(&self) -> Result<(), MediaPlayerErrors> {
+        let position = ClockTime::from_seconds_f64(self.position()?);
+        let new_position = if position > (10 * ClockTime::SECOND) {
+            position - (10 * ClockTime::SECOND)
+        } else {
+            ClockTime::ZERO
+        };
+        self.seek_to(new_position)
+    }
+
+    fn can_seek(&self) -> bool {
+        self.seek_enabled
+    }
+
+    fn position(&self) -> Result<f64, MediaPlayerErrors> {
+        self.playbin.query_position::<ClockTime>().map_or_else(
+            || Err(MediaPlayerErrors::ErrorGettingPosition),
+            |val| Ok(val.seconds_f64()),
+        )
+    }
+}
+
+/// Trait for volume control
+pub trait VolumeControl {
+    /// Set the volume (0.0 to 1.0)
+    fn set_volume(&mut self, volume: f64);
+
+    /// Get the current volume (0.0 to 1.0)
+    fn get_volume(&self) -> f64;
+
+    /// Toggle mute/unmute
+    fn toggle_mute(&mut self);
+
+    /// Check if the player is muted
+    fn is_muted(&self) -> bool;
+}
+
+impl VolumeControl for DesktopMediaPlayer {
+    fn set_volume(&mut self, volume: f64) {
+        let clamped_volume = volume.clamp(0.0, 1.0);
+        self.playbin.set_property("volume", clamped_volume);
+        self.volume = clamped_volume;
+        if !self.muted {
+            self.volume_before_mute = clamped_volume;
+        }
+    }
+
+    fn get_volume(&self) -> f64 {
+        self.volume
+    }
+
+    fn toggle_mute(&mut self) {
+        if self.muted {
+            self.playbin.set_property("volume", self.volume_before_mute);
+            self.volume = self.volume_before_mute;
+            self.muted = false;
+        } else {
+            self.volume_before_mute = self.volume;
+            self.playbin.set_property("volume", 0.0f64);
+            self.volume = 0.0;
+            self.muted = true;
+        }
+    }
+
+    fn is_muted(&self) -> bool {
+        self.muted
     }
 }

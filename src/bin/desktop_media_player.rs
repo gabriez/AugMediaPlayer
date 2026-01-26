@@ -1,8 +1,8 @@
 use {
     aug_media_player::{
-        media_player::{MediaPlayer, handle_message},
-        ui::build_ui,
         config::Args,
+        media_player::{DesktopMediaPlayer, PlaybackControl, handle_message},
+        ui::build_ui,
     },
     clap::Parser,
     gtk::{Application, glib, prelude::*},
@@ -18,7 +18,7 @@ fn main() -> glib::ExitCode {
     gstreamer::init().expect("Unable to initialize GStreamer");
 
     let app = Application::builder().application_id(APP_ID).build();
-    let media_player = Rc::new(RefCell::new(MediaPlayer::build(uri)));
+    let media_player = Rc::new(RefCell::new(DesktopMediaPlayer::build(uri)));
 
     let media_player_clone = media_player.clone();
 
@@ -35,7 +35,7 @@ fn main() -> glib::ExitCode {
 
     app.connect_activate(move |application| {
         build_ui(application, media_player.clone());
-        media_player.borrow().play_player().ok();
+        media_player.borrow().play().ok();
     });
 
     app.run_with_args::<String>(&[])

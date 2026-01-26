@@ -1,10 +1,9 @@
-
-use     clap::{Parser, Subcommand}  ;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// The URI of the media to play 
+    /// The URI of the media to play
     #[clap(short, long)]
     uri: String,
 
