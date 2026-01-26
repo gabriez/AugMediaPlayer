@@ -1,5 +1,5 @@
 use {
-    crate::media_player::{MediaPlayerRef, PlaybackControl, SeekControl, VolumeControl},
+    crate::media_player::MediaPlayerRef,
     gtk::{
         Application, ApplicationWindow, Button, Dialog, Label, ResponseType, Scale,
         glib::{self, clone},
@@ -283,7 +283,7 @@ pub fn build_volume_controls(media_player: &MediaPlayerRef) -> gtk::Box {
     volume_box
 }
 
-pub fn build_ui(app: &Application, media_player: MediaPlayerRef) {
+pub fn build_ui(app: &Application, media_player: MediaPlayerRef, video_widget: gtk::Widget) {
     let window: ApplicationWindow = ApplicationWindow::builder()
         .application(app)
         .title("AugMediaPlayer")
@@ -309,7 +309,6 @@ pub fn build_ui(app: &Application, media_player: MediaPlayerRef) {
 
     refresh_ui(&window, &media_player, &duration_bar);
 
-    let video_widget = media_player.borrow().get_gtk_widget();
     video_widget.set_size_request(640, 360);
 
     control_box.append(&video_widget);

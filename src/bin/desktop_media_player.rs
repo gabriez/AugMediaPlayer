@@ -1,7 +1,7 @@
 use {
     aug_media_player::{
         config::Args,
-        media_player::{DesktopMediaPlayer, PlaybackControl, handle_message},
+        media_player::{DesktopMediaPlayer, MediaPlayerControl, MediaPlayerRef, handle_message},
         ui::build_ui,
     },
     clap::Parser,
@@ -18,24 +18,35 @@ fn main() -> glib::ExitCode {
     gstreamer::init().expect("Unable to initialize GStreamer");
 
     let app = Application::builder().application_id(APP_ID).build();
-    let media_player = Rc::new(RefCell::new(DesktopMediaPlayer::build(uri)));
 
-    let media_player_clone = media_player.clone();
+    let inner_player = DesktopMediaPlayer::build(uri);
 
-    let bus = media_player.borrow().get_bus();
+    let bus = inner_player.get_bus();
+    let video_widget = inner_player.get_gtk_widget();
+
+    let media_player_inner = Rc::new(RefCell::new(inner_player));
+
+    let media_player_trait: MediaPlayerRef = Rc::new(RefCell::new(Box::new(
+        media_player_inner.borrow().clone(),
+    )
+        as Box<dyn MediaPlayerControl>));
 
     // After dropping the guard, the bus watch is removed automatically
     // If we avoid capturing the return value, then it will be dropped an the messages handler too
     let _bus_watch = bus
         .add_watch_local(move |_, msg| {
-            handle_message(media_player_clone.borrow_mut(), msg);
+            handle_message(media_player_inner.borrow_mut(), msg);
             glib::ControlFlow::Continue
         })
         .expect("Failed to add bus watch");
 
     app.connect_activate(move |application| {
-        build_ui(application, media_player.clone());
-        media_player.borrow().play().ok();
+        build_ui(
+            application,
+            media_player_trait.clone(),
+            video_widget.clone(),
+        );
+        media_player_trait.borrow().play().ok();
     });
 
     app.run_with_args::<String>(&[])

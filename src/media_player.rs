@@ -8,6 +8,8 @@ use {
     },
     thiserror::Error,
 };
+
+#[derive(Debug, Clone)]
 pub struct DesktopMediaPlayer {
     /// Our one and only element
     playbin: Element,
@@ -60,16 +62,6 @@ impl DesktopMediaPlayer {
         }
     }
 
-    /// Returns if the user is seeking the media
-    pub fn user_is_seeking(&self) -> bool {
-        self.user_is_seeking
-    }
-
-    // Setters
-    pub fn set_user_is_seeking(&mut self, user_is_seeking: bool) {
-        self.user_is_seeking = user_is_seeking;
-    }
-
     pub fn get_gtk_widget(&self) -> gtk::Widget {
         let paintable = self.gtk_video.property::<gtk::gdk::Paintable>("paintable");
 
@@ -92,11 +84,8 @@ impl Drop for DesktopMediaPlayer {
     }
 }
 
-pub type MediaPlayerRef = Rc<RefCell<DesktopMediaPlayer>>;
-
 #[derive(Error, Debug)]
 pub enum MediaPlayerErrors {
-
     #[error(
         "Unable to seek to the specified position with this media. Check if you're using a stream"
     )]
@@ -154,6 +143,14 @@ pub fn handle_message(mut media_player: RefMut<'_, DesktopMediaPlayer>, msg: &Me
         }
         _ => (),
     }
+}
+
+pub trait MediaPlayerControl: PlaybackControl + SeekControl + VolumeControl {
+    //placeholder
+}
+
+impl MediaPlayerControl for DesktopMediaPlayer {
+    // placeholder
 }
 
 /// Trait for playback control
@@ -217,9 +214,23 @@ pub trait SeekControl {
 
     /// Get current playback position
     fn position(&self) -> Result<f64, MediaPlayerErrors>;
+
+    /// Returns if the user is seeking the media
+    fn user_is_seeking(&self) -> bool;
+
+    /// Set if the user is seeking the media
+    fn set_user_is_seeking(&mut self, user_is_seeking: bool);
 }
 
 impl SeekControl for DesktopMediaPlayer {
+    fn user_is_seeking(&self) -> bool {
+        self.user_is_seeking
+    }
+
+    fn set_user_is_seeking(&mut self, user_is_seeking: bool) {
+        self.user_is_seeking = user_is_seeking;
+    }
+
     fn duration(&self) -> Option<f64> {
         self.duration.map(|d| d.seconds_f64())
     }
@@ -306,3 +317,5 @@ impl VolumeControl for DesktopMediaPlayer {
         self.muted
     }
 }
+
+pub type MediaPlayerRef = Rc<RefCell<Box<dyn MediaPlayerControl + 'static>>>;
