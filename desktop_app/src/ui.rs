@@ -1,5 +1,6 @@
 use {
-    crate::media_player::{DesktopMediaPlayerRef, PlaybackControl, SeekControl, VolumeControl},
+    crate::desktop_player::DesktopMediaPlayerRef,
+    common_media::media_player::{PlaybackControl, SeekControl, VolumeControl},
     gtk::{
         Application, ApplicationWindow, Button, Dialog, Label, ResponseType, Scale,
         glib::{self, clone},
@@ -29,9 +30,7 @@ pub fn refresh_ui(
             }
             if let Some(duration) = media_player_ref.duration() {
                 let seek_pos = (new_pos / 100_f64) * duration;
-                if let Err(err) =
-                    media_player_ref.seek_to(gstreamer::ClockTime::from_seconds_f64(seek_pos))
-                {
+                if let Err(err) = media_player_ref.seek_to(seek_pos) {
                     error_dialog(&window, &format!("{}", err));
                     media_player_ref.set_user_is_seeking(false);
                     return glib::Propagation::Stop;

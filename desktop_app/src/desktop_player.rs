@@ -1,12 +1,13 @@
 use {
+    common_media::media_player::{
+        MediaPlayerControl, MediaPlayerErrors, PlaybackControl, SeekControl, VolumeControl,
+    },
     gstgtk4::PaintableSink,
-    gstreamer::{prelude::*, *},
-    gtk::glib,
+    gstreamer::{ClockTime, prelude::*, *},
     std::{
         cell::{RefCell, RefMut},
         rc::Rc,
     },
-    thiserror::Error,
 };
 
 #[derive(Debug, Clone)]
@@ -84,26 +85,6 @@ impl Drop for DesktopMediaPlayer {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum MediaPlayerErrors {
-    #[error(
-        "Unable to seek to the specified position with this media. Check if you're using a stream"
-    )]
-    ErrorSeeking(glib::error::BoolError),
-    #[error("Seek is unavailable for this media")]
-    ErrorSeekingUnavailable,
-
-    #[error("Unable to get position in this media")]
-    ErrorGettingPosition,
-
-    #[error("Error playing media")]
-    ErrorPlaying(StateChangeError),
-    #[error("Error stopping media")]
-    Errorstopping(StateChangeError),
-    #[error("Error pausing media")]
-    ErrorPausing(StateChangeError),
-}
-
 pub fn handle_message(mut media_player: RefMut<'_, DesktopMediaPlayer>, msg: &Message) {
     use MessageView;
     match msg.view() {
@@ -145,27 +126,8 @@ pub fn handle_message(mut media_player: RefMut<'_, DesktopMediaPlayer>, msg: &Me
     }
 }
 
-pub trait MediaPlayerControl: PlaybackControl + SeekControl + VolumeControl {
-    //placeholder
-}
-
 impl MediaPlayerControl for DesktopMediaPlayer {
     // placeholder
-}
-
-/// Trait for playback control
-pub trait PlaybackControl {
-    /// Play the media
-    fn play(&self) -> Result<(), MediaPlayerErrors>;
-
-    /// Pause the media
-    fn pause(&self) -> Result<(), MediaPlayerErrors>;
-
-    /// Stop the media
-    fn stop(&self) -> Result<(), MediaPlayerErrors>;
-
-    /// Check if the media is playing
-    fn playing(&self) -> bool;
 }
 
 impl PlaybackControl for DesktopMediaPlayer {
@@ -195,33 +157,6 @@ impl PlaybackControl for DesktopMediaPlayer {
     }
 }
 
-/// Trait for seek control
-pub trait SeekControl {
-    /// Move the media forward by 10 seconds
-    fn seek_forward(&self) -> Result<(), MediaPlayerErrors>;
-
-    /// Move the media backward by 10 seconds
-    fn seek_backward(&self) -> Result<(), MediaPlayerErrors>;
-
-    /// Seek to a specific position in the media
-    fn seek_to(&self, position: ClockTime) -> Result<(), MediaPlayerErrors>;
-
-    /// Returns media duration in seconds
-    fn duration(&self) -> Option<f64>;
-
-    /// Check if seeking is supported for this media
-    fn can_seek(&self) -> bool;
-
-    /// Get current playback position
-    fn position(&self) -> Result<f64, MediaPlayerErrors>;
-
-    /// Returns if the user is seeking the media
-    fn user_is_seeking(&self) -> bool;
-
-    /// Set if the user is seeking the media
-    fn set_user_is_seeking(&mut self, user_is_seeking: bool);
-}
-
 impl SeekControl for DesktopMediaPlayer {
     fn user_is_seeking(&self) -> bool {
         self.user_is_seeking
@@ -236,25 +171,28 @@ impl SeekControl for DesktopMediaPlayer {
     }
 
     fn seek_forward(&self) -> Result<(), MediaPlayerErrors> {
-        let position = ClockTime::from_seconds_f64(self.position()?);
-        self.seek_to(position + (10 * ClockTime::SECOND))
+        let position = self.position()?;
+        self.seek_to(position + (10_f64 * ClockTime::SECOND.seconds_f64()))
     }
 
-    fn seek_to(&self, position: ClockTime) -> Result<(), MediaPlayerErrors> {
+    fn seek_to(&self, position: f64) -> Result<(), MediaPlayerErrors> {
         if !self.seek_enabled {
             return Err(MediaPlayerErrors::ErrorSeekingUnavailable);
         }
         self.playbin
-            .seek_simple(SeekFlags::FLUSH | SeekFlags::KEY_UNIT, position)
+            .seek_simple(
+                SeekFlags::FLUSH | SeekFlags::KEY_UNIT,
+                ClockTime::from_seconds_f64(position),
+            )
             .map_err(MediaPlayerErrors::ErrorSeeking)
     }
 
     fn seek_backward(&self) -> Result<(), MediaPlayerErrors> {
-        let position = ClockTime::from_seconds_f64(self.position()?);
-        let new_position = if position > (10 * ClockTime::SECOND) {
-            position - (10 * ClockTime::SECOND)
+        let position = self.position()?;
+        let new_position = if position > (10_f64 * ClockTime::SECOND.seconds_f64()) {
+            position - (10_f64 * ClockTime::SECOND.seconds_f64())
         } else {
-            ClockTime::ZERO
+            0_f64
         };
         self.seek_to(new_position)
     }
@@ -269,21 +207,6 @@ impl SeekControl for DesktopMediaPlayer {
             |val| Ok(val.seconds_f64()),
         )
     }
-}
-
-/// Trait for volume control
-pub trait VolumeControl {
-    /// Set the volume (0.0 to 1.0)
-    fn set_volume(&mut self, volume: f64);
-
-    /// Get the current volume (0.0 to 1.0)
-    fn get_volume(&self) -> f64;
-
-    /// Toggle mute/unmute
-    fn toggle_mute(&mut self);
-
-    /// Check if the player is muted
-    fn is_muted(&self) -> bool;
 }
 
 impl VolumeControl for DesktopMediaPlayer {

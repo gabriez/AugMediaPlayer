@@ -5,4 +5,4 @@ bin/
 pkg/
 wasm-pack.log
 .yarn
-/node_modules
+node_modules/

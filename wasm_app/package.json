@@ -1,0 +1,29 @@
+{
+  "name": "wasm-on-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "run-s wasm-pack:release tsc vite:build",
+    "dev": "run-s wasm-pack:dev vite:dev",
+    "tsc": "tsc",
+    "vite:build": "vite build",
+    "vite:dev": "vite -c vite.config.dev.ts",
+    "vite:preview": "vite preview",
+    "wasm-pack:dev": "wasm-pack build --dev",
+    "wasm-pack:release": "wasm-pack build"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "rollup": "^4.56.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0",
+    "vite-plugin-wasm-pack-watcher": "^1.0.1"
+  },
+  "packageManager": "yarn@4.9.4+sha512.7b1cb0b62abba6a537b3a2ce00811a843bea02bcf53138581a6ae5b1bf563f734872bd47de49ce32a9ca9dcaff995aa789577ffb16811da7c603dcf69e73750b",
+  "dependencies": {
+    "wasm_app": "link:./pkg"
+  }
+}

@@ -1,3 +1,3 @@
 pub mod config;
-pub mod media_player;
+pub mod desktop_player;
 pub mod ui;

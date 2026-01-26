@@ -1,0 +1,19 @@
+[package]
+name = "desktop_app"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+clap = { version = "4.5.54", features = ["derive"] }
+gst-plugin-gtk4 ={version = "0.14.4", default-features = false, features = [ 'wayland', 'x11glx', 'x11egl']}
+gstreamer = "0.24.4"
+gstreamer-video = { version = "0.24", features = ["v1_20"] }
+gtk = { version = "0.10.3", package = "gtk4", features = ["v4_6"] }
+thiserror = {workspace = true}
+common_media = { path = "../common_media" }
+
+[features]
+default = []
+wayland = ["gst-plugin-gtk4/wayland"]
+x11glx = ["gst-plugin-gtk4/x11glx"]
+x11egl = ["gst-plugin-gtk4/x11egl"]

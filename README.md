@@ -17,6 +17,15 @@ The player must support:
    - Adjust playback volume
    - Support mute and maximum volume
 
+## Setup enviroment
+
+Set toolchain to nightly for WASM to work.
+
+Download the compilation toolchain for WASM:
+```
+rustup target add wasm32-unknown-unknown
+```
+
 ## Install dependencies
 
 First update the system dependencies:
@@ -41,7 +50,16 @@ gst-plugins-rs relies on cargo-c to generate shared and static C libraries. It c
 cargo install cargo-c
 ```
 
-## Build and run
+All install some dependencies for WASM
+
+```
+cargo install wasm-tools
+cargo install wasm-opt
+cargo install wasm-pack
+
+```
+
+## Build and run desktop app
 
 To build the project, run:
 
@@ -58,6 +76,16 @@ cargo run --release --bin desktop_media_player -- --uri <URI> file/http
 The commands file or http are required to specify the origin of the media to play.
 
 ## WASM
+
+Build WASM to use it in the project with the following command:
+```
+cd wasm_app &&
+wasm-pack build --dev
+``` 
+And then we add to our TypeScript project with:
+```
+yarn add wasm_app@link:./pkg
+```
 
 <div align="center">
 
@@ -104,9 +132,6 @@ cd my-project
 
 ### 🛠️ Build with `wasm-pack build`
 
-```
-wasm-pack build
-```
 
 ### 🔬 Test in Headless Browsers with `wasm-pack test`
 

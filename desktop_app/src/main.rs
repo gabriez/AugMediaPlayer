@@ -1,10 +1,11 @@
 use {
-    aug_media_player::{
+    clap::Parser,
+    common_media::media_player::PlaybackControl,
+    desktop_app::{
         config::Args,
-        media_player::{DesktopMediaPlayer, PlaybackControl, handle_message},
+        desktop_player::{DesktopMediaPlayer, handle_message},
         ui::build_ui,
     },
-    clap::Parser,
     gtk::{Application, glib, prelude::*},
     std::{cell::RefCell, rc::Rc},
 };
