@@ -1,3 +1,5 @@
+#[wasm_bindgen]
+
 pub struct BrowserMediaPlayer {
     /// Source URL of the media
     src: String,
@@ -17,6 +19,8 @@ pub struct BrowserMediaPlayer {
     /// Volume before muting (to restore when unmuting)
     volume_before_mute: f64,
 }
+
+#[wasm_bindgen]
 
 impl BrowserMediaPlayer {
     pub fn build(src: impl AsRef<str>) -> Self {
