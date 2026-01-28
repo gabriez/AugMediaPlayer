@@ -1562,6 +1562,7 @@ checksum = "a8145dd1593bf0fb137dbfa85b8be79ec560a447298955877804640e40c2d6ea"
 name = "wasm_app"
 version = "0.1.0"
 dependencies = [
+ "common_media",
  "console_error_panic_hook",
  "wasm-bindgen",
  "wasm-bindgen-test",
