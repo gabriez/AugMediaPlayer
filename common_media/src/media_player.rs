@@ -1,11 +1,11 @@
-use {gstreamer::*, gtk::glib, thiserror::Error};
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum MediaPlayerErrors {
     #[error(
         "Unable to seek to the specified position with this media. Check if you're using a stream"
     )]
-    ErrorSeeking(glib::error::BoolError),
+    ErrorSeeking(String),
     #[error("Seek is unavailable for this media")]
     ErrorSeekingUnavailable,
 
@@ -13,11 +13,11 @@ pub enum MediaPlayerErrors {
     ErrorGettingPosition,
 
     #[error("Error playing media")]
-    ErrorPlaying(StateChangeError),
+    ErrorPlaying(String),
     #[error("Error stopping media")]
-    Errorstopping(StateChangeError),
+    Errorstopping(String),
     #[error("Error pausing media")]
-    ErrorPausing(StateChangeError),
+    ErrorPausing(String),
 }
 
 pub trait MediaPlayerControl: PlaybackControl + SeekControl + VolumeControl {

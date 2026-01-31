@@ -1,7 +1,5 @@
 use {
-    common_media::media_player::{
-        MediaPlayerControl, MediaPlayerErrors, PlaybackControl, SeekControl, VolumeControl,
-    },
+    common_media::media_player::{MediaPlayerErrors, PlaybackControl, SeekControl, VolumeControl},
     wasm_bindgen::prelude::*,
 };
 
@@ -42,7 +40,7 @@ impl BrowserMediaPlayer {
     }
 }
 
-/// TODO: still to be implemented
+// /// TODO: still to be implemented
 impl PlaybackControl for BrowserMediaPlayer {
     fn play(&self) -> Result<(), MediaPlayerErrors> {
         todo!("Still to implement")
@@ -102,5 +100,5 @@ impl VolumeControl for BrowserMediaPlayer {
     }
 }
 
-// Maybe I'll delete this trait in the future. I created it this way to group all the other traits, but maybe is unnecesary
-impl MediaPlayerControl for BrowserMediaPlayer {}
+// // Maybe I'll delete this trait in the future. I created it this way to group all the other traits, but maybe is unnecesary
+// impl MediaPlayerControl for BrowserMediaPlayer {}

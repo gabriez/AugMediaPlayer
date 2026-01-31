@@ -70,7 +70,7 @@ cargo build --release
 To run the project, run:
 
 ```
-cargo run --release --bin desktop_media_player -- --uri <URI> file/http
+cargo run --release --bin desktop_app -- --uri <URI> file/http
 ```
 
 The commands file or http are required to specify the origin of the media to play.

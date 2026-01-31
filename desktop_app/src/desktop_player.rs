@@ -134,21 +134,21 @@ impl PlaybackControl for DesktopMediaPlayer {
     fn pause(&self) -> Result<(), MediaPlayerErrors> {
         self.playbin
             .set_state(State::Paused)
-            .map_err(MediaPlayerErrors::ErrorPausing)
+            .map_err(|err| MediaPlayerErrors::ErrorPausing(err.to_string()))
             .map(|_| ())
     }
 
     fn play(&self) -> Result<(), MediaPlayerErrors> {
         self.playbin
             .set_state(State::Playing)
-            .map_err(MediaPlayerErrors::ErrorPlaying)
+            .map_err(|err| MediaPlayerErrors::ErrorPlaying(err.to_string()))
             .map(|_| ())
     }
 
     fn stop(&self) -> Result<(), MediaPlayerErrors> {
         self.playbin
             .set_state(State::Ready)
-            .map_err(MediaPlayerErrors::Errorstopping)
+            .map_err(|err| MediaPlayerErrors::Errorstopping(err.to_string()))
             .map(|_| ())
     }
 
@@ -184,7 +184,7 @@ impl SeekControl for DesktopMediaPlayer {
                 SeekFlags::FLUSH | SeekFlags::KEY_UNIT,
                 ClockTime::from_seconds_f64(position),
             )
-            .map_err(MediaPlayerErrors::ErrorSeeking)
+            .map_err(|err| MediaPlayerErrors::ErrorSeeking(err.to_string()))
     }
 
     fn seek_backward(&self) -> Result<(), MediaPlayerErrors> {
