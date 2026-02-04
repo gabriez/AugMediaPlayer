@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["desktop_app", "common_media", "wasm_app"]
+members = ["desktop_app", "common_media", "wasm_app", "video-backend"]
 authors = ["Gabriel Torres <gabrieltorres2014@gmail.com>"]
 
 
