@@ -1,13 +1,89 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>wasm-on-web</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+	<head>
+		<meta charset="UTF-8" />
+		<link rel="icon" type="image/svg+xml" href="/vite.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>wasm-on-web</title>
+	</head>
+	<body>
+		<div id="app">
+			<div>
+				<h1>Media Player</h1>
+				<div class="upload_section">
+					<select id="videoList">
+						<option></option>
+					</select>
+					<form class="upload_form" id="upload_form">
+						<input type="file" id="upload_button" />
+						<button type="submit">Send video</button>
+					</form>
+				</div>
+
+				<div class="card">
+					<div class="video-container">
+						<video id="wasm_video_control">
+							<source
+								id="wasm_video"
+							/>
+							Your browser does not support the video tag.
+						</video>
+						<div id="video_overlay"></div>
+					</div>
+					<div id="controls">
+						<button id="playPause" class="control-btn play-pause">
+							<svg id="playIcon" viewBox="0 0 24 24">
+								<path fill="white" d="M8 5v14l11-7z" />
+							</svg>
+							<svg id="pauseIcon" viewBox="0 0 24 24" style="display: none">
+								<path fill="white" d="M6 4h4v16H6zM14 4h4v16h-4z" />
+							</svg>
+						</button>
+						<button id="rewind" class="control-btn" title="Retroceder 10s">
+							<svg viewBox="0 0 24 24">
+								<path
+									fill="white"
+									d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
+								<text
+									x="9"
+									y="16"
+									font-size="8"
+									fill="white"
+									font-weight="bold">
+									10
+								</text>
+							</svg>
+						</button>
+						<button id="forward" class="control-btn" title="Adelantar 10s">
+							<svg viewBox="0 0 24 24">
+								<path
+									fill="white"
+									d="M12 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z" />
+								<text
+									x="9"
+									y="16"
+									font-size="8"
+									fill="white"
+									font-weight="bold">
+									10
+								</text>
+							</svg>
+						</button>
+						<input type="range" id="volume" min="0" max="100" value="70" />
+						<button id="mute" class="control-btn">🔊</button>
+						<button
+							id="fullscreen"
+							class="control-btn"
+							title="Pantalla completa">
+							⛶
+						</button>
+					</div>
+				</div>
+				<p class="read-the-docs">
+					Click on the Vite and TypeScript logos to learn more
+				</p>
+			</div>
+		</div>
+		<script type="module" src="/src/main.ts"></script>
+	</body>
 </html>
