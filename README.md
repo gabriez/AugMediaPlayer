@@ -1,3 +1,11 @@
+# Description
+
+The following repo has four different crates, those are: 
+- wasm_app: an implementation to use wasm on browser by processing metadata from a backend.
+- video-backend: receives, stores and process videos from the wasm_app
+- desktop_app: run media files on desktop app
+- common_media: stores structs that could be used on other apps
+
 # Goal
 
 Develop a native video player application written in Rust that supports basic video playback and
@@ -74,6 +82,20 @@ cargo run --release --bin desktop_app -- --uri <URI> file/http
 ```
 
 The commands file or http are required to specify the origin of the media to play.
+
+## Run video-backend
+
+This repo can use environmental variables. You can check which variables uses on .env.example:
+
+To run this repo you use the following command: 
+```
+cargo run --bin video-backend --release
+```
+Alternativaly you can use:
+```
+cd video-backend
+cargo run --release
+```
 
 ## WASM
 

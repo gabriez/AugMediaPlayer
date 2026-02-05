@@ -1,14 +1,19 @@
-use std::path::PathBuf;
+use std::path::{Path as PathStd, PathBuf};
 
 use axum::{
     Json,
-    extract::{Multipart, Path},
-    http::StatusCode,
+    body::Body,
+    extract::{DefaultBodyLimit, Multipart, Path},
+    http::{HeaderMap, Response, StatusCode, header},
     response::IntoResponse,
 };
 use gstreamer::prelude::*;
 use serde::{Deserialize, Serialize};
-use tokio::{fs::File, io::AsyncWriteExt};
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+};
+use tokio_util::io::ReaderStream;
 
 use crate::{ENV_VARS, ServerResponse, create_dir_if_not_exists};
 
@@ -41,10 +46,18 @@ pub struct MediaFileMetadata {
     pub height: u32,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct MediaFileResponse {
+    pub metadata: Vec<MediaFileMetadata>,
+    pub stream_url: String,
+    pub id: String,
+    pub filename: String,
+}
+
 pub async fn get_media_files() -> impl IntoResponse {
     let env_vars = ENV_VARS.get().expect("ENV_VARS not set");
     let media_storage_path =
-        std::path::Path::new(env_vars.media_storage_path.as_str()).join(MEDIA_PATH_JSON);
+        PathStd::new(env_vars.media_storage_path.as_str()).join(MEDIA_PATH_JSON);
 
     tokio::fs::read_to_string(media_storage_path)
         .await
@@ -71,13 +84,104 @@ pub async fn get_media_files() -> impl IntoResponse {
         })
 }
 
-pub async fn stream_media_file(Path(id): Path<u32>) -> impl IntoResponse {
-    StatusCode::INTERNAL_SERVER_ERROR
+pub async fn stream_media_file_handler(
+    Path(id): Path<String>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let env_vars = ENV_VARS.get().expect("ENV_VARS not set");
+
+    let media_files_path = PathStd::new(env_vars.media_storage_path.as_str()).join(MEDIA_PATH_JSON);
+
+    let media_files: Vec<MediaFiles> = match tokio::fs::read_to_string(&media_files_path).await {
+        Ok(data) => serde_json::from_str(&data).unwrap_or_default(),
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let media_file = match media_files.iter().find(|f| f.id == id) {
+        Some(f) => f,
+        None => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let file_path = PathStd::new(env_vars.media_storage_path.as_str())
+        .join(MEDIA_PATH)
+        .join(&id)
+        .join(&media_file.filename);
+
+    let file_size = match tokio::fs::metadata(&file_path).await {
+        Ok(metadata) => metadata.len(),
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+    let mut file = match File::open(&file_path).await {
+        Ok(file) => file,
+        Err(_) => return StatusCode::NOT_FOUND.into_response(),
+    };
+
+    let content_type = match file_path.extension().and_then(|e| e.to_str()) {
+        Some("mp4") => "video/mp4",
+        Some("webm") => "video/webm",
+        Some("ogg") => "video/ogg",
+        Some("avi") => "video/x-msvideo",
+        _ => "application/octet-stream",
+    };
+
+    if let Some(range) = headers.get(header::RANGE) {
+        if let Ok(range_str) = range.to_str() {
+            if let Some(range_value) = range_str.strip_prefix("bytes=") {
+                let parts: Vec<&str> = range_value.split('-').collect();
+
+                if parts.len() == 2 {
+                    let start: u64 = parts[0].parse().unwrap_or(0);
+                    let end: u64 = if parts[1].is_empty() {
+                        file_size - 1
+                    } else {
+                        parts[1].parse().unwrap_or(file_size - 1).min(file_size - 1)
+                    };
+
+                    // Seek al inicio del rango
+                    if file.seek(tokio::io::SeekFrom::Start(start)).await.is_err() {
+                        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+                    }
+
+                    // Crear stream limitado al rango
+                    let length = end - start + 1;
+                    let limited_file = file.take(length);
+                    let stream = ReaderStream::new(limited_file);
+                    let body = Body::from_stream(stream);
+
+                    // Retornar 206 Partial Content
+                    return Response::builder()
+                        .status(StatusCode::PARTIAL_CONTENT)
+                        .header(header::CONTENT_TYPE, content_type)
+                        .header(header::CONTENT_LENGTH, length)
+                        .header(
+                            header::CONTENT_RANGE,
+                            format!("bytes {}-{}/{}", start, end, file_size),
+                        )
+                        .header(header::ACCEPT_RANGES, "bytes")
+                        .body(body)
+                        .unwrap()
+                        .into_response();
+                }
+            }
+        }
+    }
+
+    let stream = ReaderStream::new(file);
+    let body = Body::from_stream(stream);
+
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_LENGTH, file_size)
+        .header(header::ACCEPT_RANGES, "bytes")
+        .body(body)
+        .unwrap()
+        .into_response()
 }
 
-pub async fn upload_media_file(multipart: Multipart) -> impl IntoResponse {
+pub async fn upload_media_file_handler(multipart: Multipart) -> impl IntoResponse {
     let env_vars = ENV_VARS.get().expect("ENV_VARS not set");
-    let root_dir = std::path::Path::new(env_vars.media_storage_path.as_str()).to_path_buf();
+    let root_dir = PathStd::new(env_vars.media_storage_path.as_str()).to_path_buf();
 
     let (media_file, video_path) = match store_video_file(multipart, &root_dir).await {
         Ok(path) => path,
@@ -138,23 +242,60 @@ pub async fn upload_media_file(multipart: Multipart) -> impl IntoResponse {
     )
 }
 
-pub async fn get_media_file_metadata(Path(id): Path<u32>) -> impl IntoResponse {
+pub async fn get_media_handler(Path(id): Path<String>) -> impl IntoResponse {
     let env_vars = ENV_VARS.get().expect("ENV_VARS not set");
-    let media_storage_path = std::path::Path::new(env_vars.media_storage_path.as_str())
+
+    let media_storage_path =
+        PathStd::new(env_vars.media_storage_path.as_str()).join(MEDIA_PATH_JSON);
+
+    let media_files = match tokio::fs::read_to_string(&media_storage_path).await {
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(ServerResponse {
+                    status: false,
+                    message: "Media file not found".to_string(),
+                    data: None,
+                }),
+            );
+        }
+        Ok(data) => serde_json::from_str::<Vec<MediaFiles>>(&data).unwrap_or_default(),
+    };
+
+    let media_file = if let Some(mf) = media_files.into_iter().find(|mf| mf.id == id) {
+        mf
+    } else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ServerResponse {
+                status: false,
+                message: "Media file not found".to_string(),
+                data: None,
+            }),
+        );
+    };
+
+    let metadata_storage_path = PathStd::new(env_vars.media_storage_path.as_str())
         .join(MEDIA_PATH)
-        .join(id.to_string())
+        .join(&id)
         .join(METADATA_JSON);
 
-    tokio::fs::read_to_string(media_storage_path)
+    tokio::fs::read_to_string(metadata_storage_path)
         .await
         .map(|data| {
             let metadata: Vec<MediaFileMetadata> = serde_json::from_str(&data).unwrap_or_default();
+            let media_file_response = MediaFileResponse {
+                metadata,
+                stream_url: format!("/media_files/{}/stream", id),
+                filename: media_file.filename,
+                id,
+            };
             (
                 StatusCode::OK,
                 Json(ServerResponse {
                     status: true,
                     message: "Meta data file retrieved successfully".to_string(),
-                    data: metadata,
+                    data: Some(media_file_response),
                 }),
             )
         })
@@ -164,7 +305,7 @@ pub async fn get_media_file_metadata(Path(id): Path<u32>) -> impl IntoResponse {
                 Json(ServerResponse {
                     status: false,
                     message: "Failed to read metadata file".to_string(),
-                    data: vec![],
+                    data: None,
                 }),
             )
         })
@@ -174,16 +315,14 @@ pub fn media_routes() -> axum::Router {
     axum::Router::new()
         .route("/media_files", axum::routing::get(get_media_files))
         .route(
-            "/media_files/{id}/stream",
-            axum::routing::get(stream_media_file),
-        )
-        .route(
             "/media_files/upload",
-            axum::routing::post(upload_media_file),
+            axum::routing::post(upload_media_file_handler)
+                .layer(DefaultBodyLimit::max(500 * 1024 * 1024)),
         )
+        .route("/media_files/{id}", axum::routing::get(get_media_handler))
         .route(
-            "/media_files/{id}/metadata",
-            axum::routing::get(get_media_file_metadata),
+            "/media_files/{id}/stream",
+            axum::routing::get(stream_media_file_handler),
         )
 }
 
@@ -219,7 +358,7 @@ async fn store_video_file(
                     }),
                 ));
             }
-            file_name.unwrap().to_string()
+            file_name.unwrap().to_string().replace(" ", "_")
         };
 
         while let Ok(Some(chunk)) = file.chunk().await {
@@ -263,7 +402,7 @@ async fn store_video_file(
             Ok(file) => file,
         };
 
-        if let Err(_) = file.write(&data).await {
+        if let Err(_) = file.write_all(&data).await {
             return Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ServerResponse::<()> {
@@ -288,8 +427,6 @@ async fn store_video_file(
 fn process_video_with_gstreamer(video_path: &PathBuf) -> Result<Vec<MediaFileMetadata>, String> {
     use gstreamer as gst;
     use std::sync::{Arc, Mutex};
-
-    println!("file://{}", video_path.to_str().unwrap());
 
     // Build the pipeline
     let pipeline = gst::parse::launch(&format!(
@@ -325,6 +462,7 @@ fn process_video_with_gstreamer(video_path: &PathBuf) -> Result<Vec<MediaFileMet
 
                 // Get timestamp
                 let pts = buffer.pts();
+
                 if pts.is_none() {
                     return Ok(gst::FlowSuccess::Ok);
                 }

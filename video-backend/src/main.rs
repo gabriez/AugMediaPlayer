@@ -1,5 +1,6 @@
 use axum::{Json, Router, response::IntoResponse, routing::get};
 use dotenv::dotenv;
+use tower_http::cors::{Any, CorsLayer};
 use video_backend::{ENV_VARS, ServerEnvVars, ServerResponse, media::media_routes};
 
 #[tokio::main]
@@ -12,9 +13,15 @@ async fn main() {
         .set(env_vars.clone())
         .expect("Failed to set ENV_VARS");
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let app = Router::new()
         .route("/", get(default_response))
-        .merge(media_routes());
+        .merge(media_routes())
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", env_vars.port))
         .await

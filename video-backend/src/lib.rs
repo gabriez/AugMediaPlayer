@@ -36,9 +36,9 @@ impl ServerEnvVars {
         let media_storage_path =
             std::env::var("MEDIA_STORAGE_PATH").unwrap_or_else(|_| "./media_files".to_string());
         let port = std::env::var("PORT")
-            .unwrap_or_else(|_| "3000".to_string())
+            .unwrap_or_else(|_| "3001".to_string())
             .parse::<u16>()
-            .unwrap_or(3000);
+            .unwrap_or(3001);
 
         Self {
             media_storage_path,
