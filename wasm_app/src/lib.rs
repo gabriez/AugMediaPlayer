@@ -1,4 +1,4 @@
-mod browser_player;
+mod metadata_parser;
 mod utils;
 
 use wasm_bindgen::prelude::*;
